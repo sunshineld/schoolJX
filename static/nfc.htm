@@ -1,0 +1,100 @@
+﻿<html>
+<body>
+    <input type="button" value="读卡" onclick="javascript:reveivedMsg({code:'nfc_read',data:null});" />
+    <br /><span id="msg"></span>
+</body>
+</html>
+<script type ="text/javascript">
+    function shMsg(text) { var o = document.getElementById("msg"); if ((text || "") == "") { o.innerHTML = ""; return; } document.getElementById("msg").innerHTML += text + "<br />"; }
+    var Nfc = null;
+    var cmdTimer = null;
+    var dynSQL = "";
+    var lastCode = "";
+    var currentCode = "";
+    var times = 0;
+    var flag = false;
+    window.onload = function () {
+        try{Nfc = new ActiveXObject("myActiveX.PcscActiveX");}catch(e){sendMsg({ code: "nfc_error", data: "您的浏览器不支持NFC阅读组件，请安装好驱动后使用IE浏览器进行操作！" });return;}
+        if (Nfc == null) { sendMsg({ code: "nfc_error", data: "您的浏览器不支持NFC阅读组件，请安装好驱动后使用IE浏览器进行操作！" }); Nfc = null; return; }
+        Nfc.EstablishContext();
+        sendMsg({ code: "nfc_ok", data: "" });
+    };
+    window.onunload = function () {
+        if (cmdTimer != null) { clearInterval(cmdTimer); cmdTimer = null; }
+        if (null != Nfc) { Nfc = null; }
+    };
+    function read() {
+        try {
+            dynSQL = Nfc.ConnectToReader("ACS ACR122 0");
+            dynSQL = Nfc.Transmit("FFCA000000", 5, 6).replace(/ /g, "");
+            currentCode = dynSQL.toUpperCase();
+            if (lastCode == currentCode) return;
+            lastCode = currentCode;
+            if (dynSQL.length >= 12 && dynSQL.substring(dynSQL.length - 4) == "9000") {
+                dynSQL = dynSQL.substring(0, dynSQL.length - 4);
+                shMsg("卡号：" + dynSQL);
+                sendMsg({ code: "nfc_OnReadCard", data: dynSQL });
+            }
+        } catch (e) {
+        }
+    }
+    function readOnce() {
+        try {
+            if(times++ > 15) {
+                sendMsg({ code: "nfc_again", data: "未检测到NFC卡，请重新绑定！" });
+                return;
+            }
+            if(flag) {
+                return;
+            }
+            dynSQL = Nfc.ConnectToReader("ACS ACR122 0");
+            dynSQL = Nfc.Transmit("FFCA000000", 5, 6).replace(/ /g, "");
+            currentCode = dynSQL.toUpperCase();
+            console.log("---------",dynSQL)
+            setTimeout(function() {
+                if(dynSQL == 6) {
+                   readOnce();
+                }
+            },2000);
+            if (dynSQL.length >= 12 && dynSQL.substring(dynSQL.length - 4) == "9000") {
+                dynSQL = dynSQL.substring(0, dynSQL.length - 4);
+                shMsg("卡号：" + dynSQL);
+                sendMsg({ code: "nfc_OnReadCard", data: dynSQL });
+            }
+        } catch (e) {
+        }
+    }
+    function reveivedMsg(msg) {
+        shMsg("收到Vue发来的消息：" + JSON.stringify(msg));
+        switch (msg.code) {
+            case "nfc_start":   //开始读卡
+                cmdTimer = setInterval(function () {
+                    if (Nfc == null) return;
+                    read();
+                }, 2000);
+                break;
+            case "nfc_read":
+                times = 0;
+                setTimeout(function() {
+                    if (Nfc == null) return;
+                    readOnce();
+                },2000);
+                break;
+            case "nfc_stop":    //结束读卡
+                if (cmdTimer != null) { clearInterval(cmdTimer); cmdTimer = null; }
+                times = 15;
+                break;
+            case "dialog_close": //弹框关闭
+                flag = true;
+                break;
+            case "dialog_open": //弹框打开
+                flag = false;
+                break;
+        }
+    }
+    function sendMsg(msg) {
+        if (top == self) return;
+        top && top.postMessage(msg, '*');
+    }
+    window.addEventListener('message', function (e) { reveivedMsg(e.data); });
+</script>

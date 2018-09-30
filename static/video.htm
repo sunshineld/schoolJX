@@ -1,0 +1,152 @@
+<html>
+
+<body style="margin:0;">
+  <div id="playercontainer"></div>
+  <div id="video">
+    <div id="flash_install" style="text-align:center;margin:100px auto;color:#909399;font-size:15pt;font-family:sans-serif;display:none">
+      您的浏览器未安装Flash插件,点击
+      <a href="https://get.adobe.com/tw/flashplayer/" target="_blank">此处</a>进行安装！
+    </div>
+    <div id="error" style="text-align:center;margin:100px auto;color:#909399;font-size:15pt;font-family:sans-serif;display:none">接口请求错误，请关闭后重试！</div>
+  </div>
+</body>
+
+</html>
+<script type="text/javascript" src="http://resource.bcevod.com/player/cyberplayer.js"></script>
+<script type="text/javascript" src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
+<script type="text/javascript" src="./config.js"></script>
+<script type="text/javascript">
+  function reveivedMsg(msg) {
+    console.log(msg);
+    switch (msg.code) {
+      case "video_start":
+        break;
+      case "video_stop": //结束视频
+        if (cmdTimer != null) {
+          clearInterval(cmdTimer);
+          cmdTimer = null;
+        }
+        break;
+    }
+  }
+
+  function sendMsg(msg) {
+    if (top == self) return;
+    top && top.postMessage(msg, '*');
+  }
+  window.addEventListener('message', function (e) {
+    reveivedMsg(e.data);
+  });
+  window.onload = function () {
+    var fls = flashChecker();
+    var s = "";
+    var flash = document.getElementById('flash_install');
+    if (!fls.f) {
+      flash.style.display = 'block';
+    } else {
+      flash.style.display = 'none';
+      var path = decodeURI(window.location.href);
+      path = path.split("?path=")[1];
+      var type = "video/" + path.substring(path.lastIndexOf(".") + 1);
+
+      var myPlayer = cyberplayer("playercontainer").setup({
+        width: "100%",
+        height: "100%",
+        file: path,
+        image: "",
+        autostart: true,
+        stretching: "uniform",
+        repeat: false,
+        volume: 100,
+        controls: true,
+        ak: 'cc94de6803904f2ca7159eedeaced55d'
+      });
+      myPlayer.onConnection(function () {
+        console.log("onConnection");
+      });
+      myPlayer.onError(function (event) {
+        console.log("onError");
+      });
+      var flag = false;
+      myPlayer.onAlive(function () {
+        if (!flag) {
+          console.log("开始播放");
+          flag = true;
+          $.ajax({
+            type: "POST",
+            dataType: "json",
+            data: {
+              token: localStorage.jxtoken,
+              is_add: 1
+            },
+            url: req_api + "/Monitor/update",
+            success: function (data) {
+              console.log(data);
+              if (data.status != 1) {
+                myPlayer.remove();
+                $('#error').show();
+              }
+            },
+            error: function (er) {
+              myPlayer.remove();
+              $('#error').show();
+            }
+          });
+        }
+      });
+      window.onbeforeunload = function () {
+        if (flag) {
+          console.log('播放结束 页面关闭了')
+          $.ajax({
+            async: false,
+            type: "POST",
+            dataType: "json",
+            data: {
+              token: localStorage.jxtoken,
+              is_add: 2
+            },
+            url: req_api + "/Monitor/update",
+            success: function (data) {
+              console.log(data)
+            },
+            error: function (er) {
+              console.log('er');
+            }
+          });
+        }
+      }
+
+    }
+  };
+  //检测flashplayer版本
+  function flashChecker() {
+    var hasFlash = 0;　　　　 //是否安装了flash    
+    var flashVersion = 0;　　 //flash版本    
+
+    if (document.all) {
+      var swf = new ActiveXObject('ShockwaveFlash.ShockwaveFlash');
+      if (swf) {
+        hasFlash = 1;
+        VSwf = swf.GetVariable("$version");
+        flashVersion = parseInt(VSwf.split(" ")[1].split(",")[0]);
+      }
+    } else {
+      if (navigator.plugins && navigator.plugins.length > 0) {
+        var swf = navigator.plugins["Shockwave Flash"];
+        if (swf) {
+          hasFlash = 1;
+          var words = swf.description.split(" ");
+          for (var i = 0; i < words.length; ++i) {
+            if (isNaN(parseInt(words[i]))) continue;
+            flashVersion = parseInt(words[i]);
+          }
+        }
+      }
+    }
+    return {
+      f: hasFlash,
+      v: flashVersion
+    };
+  }
+
+</script>

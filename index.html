@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=11">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>教务系统</title>
+    <style type="text/css">
+      /* hack */
+      .el-step__icon.is-text img {
+        margin-left: -8px!important;
+      }
+    </style>
+    <script src="/static/config.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/static/js/promise.min.js"></script>
+    <script src="/static/js/extends.js"></script>
+  </head>
+  <body>
+    <!--#####    add by xing.wei 2018.04.18  start  #####-->
+    <object classid="clsid:CA69969C-2F27-41D3-954D-A48B941C3BA7" id="Biokey" width="0" height="0" style="position: fixed;"></object>
+    <!--#####    add by xing.wei 2018.04.18  end    #####-->
+    <div id="app"></div>
+    <script type="text/javascript" charset="utf-8" src="/static/js/biokey.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/static/js/nfc.js"></script>
+    <!-- built files will be auto injected -->
+   </body>
+  <script>
+    // ueditor 服务器地址配置
+  window.SERVER_BASE_URL = req_api + '/';
+  </script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/ueditor.config.js"></script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/ueditor.all.min.js"> </script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/lang/zh-cn/zh-cn.js"></script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/third-party/m3u8/hls.min.js"></script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/easeljs.min.js"></script>
+  <script type="text/javascript" charset="utf-8" src="/static/js/third-party/ckplayer/ckplayer.min.js"></script>
+  <!--#####    add by xing.wei 2018.04.18  start  #####-->
+  <script language="javascript" for="Biokey" event="OnFeatureInfo(AQuality)" type="text/javascript">
+    if(!BiokeyNODE.IsRegister)return;
+    biokey.qDebug("指纹特征质量：" + AQuality);
+    try{
+      // biokey.Biokey_ctx.OnRegStep(AQuality);
+      console.log("指纹质量：",AQuality);
+      biokey.emit('regStep', AQuality);
+    }catch(e){
+      biokey.qDebug(e);
+    }
+   //0：好的指纹特征 
+   //1: 特征点不够 
+   //2: 其它原因导致不能取到指纹特征 
+   //-1:  可疑指纹
+ </script>
+ <script language="javascript" for="Biokey" event="OnEnroll(ActionResult,ATemplate)" type="text/javascript">
+   var finger = BiokeyNODE.GetTemplateAsString();
+   biokey.qDebug("注册结果:" + ActionResult);
+   biokey.qDebug("指纹模板：" + finger);
+   //ActionResult: true~false
+   try{
+    //  biokey.Biokey_ctx.OnRegResult(ActionResult,finger);
+     biokey.emit('regResult', {
+      ActionResult: ActionResult,
+      finger: finger
+     });
+    }catch(e){
+      biokey.qDebug(e);
+    }
+ </script>
+ <script language="javascript" for="Biokey" event="OnCapture(ActionResult,ATemplate)" type="text/javascript">
+   var finger = BiokeyNODE.GetTemplateAsString();
+   biokey.qDebug("读取到指纹特征：" + finger);
+   var ret = BiokeyNODE.IdentificationFromStrInFPCacheDB(biokey.Biokey_DBHandle,finger, biokey.Biokey_VerifyScore, 1);
+   biokey.qDebug("内存比对返回序号：" + ret);
+   //ret:>=1 true, false
+   try{
+    //  biokey.Biokey_ctx.OnVerifyResult(ret);
+     biokey.emit('verifyResult', ret);
+    }catch(e){
+      biokey.qDebug(e);
+    }
+ </script>
+ <script>window.onunload = function(){if(biokey)biokey.dispose();};</script>
+ <!--#####    add by xing.wei 2018.04.18  end  #####-->
+</html>
